@@ -79,42 +79,49 @@ async function run() {
       // };
 
       /***** USER RELATED APIs *****/
-      app.put("/users", async (req, res) => {
-         const user = req.body; // Extract user data from the request body
-         const query = { email: user?.email }; // Create a query object using the user's email
 
-         // Check if the user already exists in the database
-         const isExist = await usersCollection.findOne(query);
-         if (isExist) {
-            // If the user exists and is trying to change their status to "Requested"
-            if (user.status === "Requested") {
-               // Update the user's status in the database
-               const result = await usersCollection.updateOne(query, {
-                  $set: { status: user?.status },
-               });
-               return res.send(result); // Return the result of the update operation
-            } else {
-               // If the user exists and is not changing their status, return the existing user data
-               return res.send(isExist);
-            }
-         }
-
-         // If the user does not exist, save the user data for the first time
-         const options = { upsert: true }; // Set the upsert option to true
-         const updateDoc = {
-            $set: {
-               ...user, // Spread the user data into the update document
-               createdAt: Date.now(), // Add a timestamp field with the current date and time
-            },
-         };
-         // Perform the update operation with upsert option (inserts a new document if no matching document is found)
-         const result = await usersCollection.updateOne(
-            query,
-            updateDoc,
-            options
-         );
-         res.send(result); // Return the result of the update operation
+      app.post("/users", async (req, res) => {
+         const data = req.body;
+         const result = await usersCollection.insertOne(data);
+         res.send(result);
       });
+
+      // app.put("/users", async (req, res) => {
+      //    const user = req.body; // Extract user data from the request body
+      //    const query = { email: user?.email }; // Create a query object using the user's email
+
+      //    // Check if the user already exists in the database
+      //    const isExist = await usersCollection.findOne(query);
+      //    if (isExist) {
+      //       // If the user exists and is trying to change their status to "Requested"
+      //       if (user.status === "Requested") {
+      //          // Update the user's status in the database
+      //          const result = await usersCollection.updateOne(query, {
+      //             $set: { status: user?.status },
+      //          });
+      //          return res.send(result); // Return the result of the update operation
+      //       } else {
+      //          // If the user exists and is not changing their status, return the existing user data
+      //          return res.send(isExist);
+      //       }
+      //    }
+
+      //    // If the user does not exist, save the user data for the first time
+      //    const options = { upsert: true }; // Set the upsert option to true
+      //    const updateDoc = {
+      //       $set: {
+      //          ...user, // Spread the user data into the update document
+      //          createdAt: Date.now(), // Add a timestamp field with the current date and time
+      //       },
+      //    };
+      //    // Perform the update operation with upsert option (inserts a new document if no matching document is found)
+      //    const result = await usersCollection.updateOne(
+      //       query,
+      //       updateDoc,
+      //       options
+      //    );
+      //    res.send(result); // Return the result of the update operation
+      // });
 
       console.log(
          "Pinged your deployment. You successfully connected to MongoDB!"
