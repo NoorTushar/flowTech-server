@@ -100,7 +100,10 @@ async function run() {
       app.get("/works/:email", async (req, res) => {
          const email = req.params.email;
          const query = { employee: email };
-         const result = await worksCollection.find(query).toArray();
+         const result = await worksCollection
+            .find(query)
+            .sort({ workDate: -1 })
+            .toArray();
          res.send(result);
       });
 
