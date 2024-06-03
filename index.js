@@ -96,6 +96,14 @@ async function run() {
          res.send(result);
       });
 
+      // get work data based on user email
+      app.get("/works/:email", async (req, res) => {
+         const email = req.params.email;
+         const query = { employee: email };
+         const result = await worksCollection.find(query).toArray();
+         res.send(result);
+      });
+
       console.log(
          "Pinged your deployment. You successfully connected to MongoDB!"
       );
