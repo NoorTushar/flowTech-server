@@ -171,6 +171,48 @@ async function run() {
          res.send(result);
       });
 
+      // find pay history for a single user
+      app.get("/pay/:email", async (req, res) => {
+         const email = req.params.email;
+         const query = { email: email };
+
+         // Assuming 'month' and 'year' are stored as strings and need to be combined and sorted
+         // You can use a pipeline to sort by year and month
+         const result = await paymentCollection
+            .aggregate([
+               { $match: query },
+               {
+                  $addFields: {
+                     yearInt: { $toInt: "$year" },
+                     monthInt: {
+                        $indexOfArray: [
+                           [
+                              "January",
+                              "February",
+                              "March",
+                              "April",
+                              "May",
+                              "June",
+                              "July",
+                              "August",
+                              "September",
+                              "October",
+                              "November",
+                              "December",
+                           ],
+                           "$month",
+                        ],
+                     },
+                  },
+               },
+               { $sort: { yearInt: -1, monthInt: -1 } },
+               { $project: { yearInt: 0, monthInt: 0 } }, // Remove temporary fields from the result
+            ])
+            .toArray();
+
+         res.send(result);
+      });
+
       console.log(
          "Pinged your deployment. You successfully connected to MongoDB!"
       );
