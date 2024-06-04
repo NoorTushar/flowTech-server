@@ -87,6 +87,14 @@ async function run() {
          res.send(result);
       });
 
+      // find a employee using email
+      app.get("/people/:email", async (req, res) => {
+         const email = req.params.email;
+         const query = { email: email };
+         const result = await peopleCollection.findOne(query);
+         res.send(result);
+      });
+
       app.post("/people", async (req, res) => {
          const data = req.body;
          const email = data.email;
