@@ -31,6 +31,7 @@ async function run() {
    try {
       const peopleCollection = client.db("flowTech").collection("people");
       const worksCollection = client.db("flowTech").collection("works");
+      const paymentCollection = client.db("flowTech").collection("payments");
 
       /********** JWT Related APIs ************/
 
@@ -138,6 +139,27 @@ async function run() {
             .find(query)
             .sort({ workDate: -1 })
             .toArray();
+         res.send(result);
+      });
+
+      /********** Payment Related APIs ************/
+      app.post("/pay", async (req, res) => {
+         const data = req.body;
+
+         // Check if a payment exists for the same employee and month
+         const existingPayment = await paymentCollection.findOne({
+            email: data.email,
+            month: data.month,
+            year: data.year,
+         });
+
+         if (existingPayment) {
+            // If a payment exists for the same employee and month, return an error
+            return res.send({ message: "payment already made" });
+         }
+
+         // If no existing payment, insert the payment data into the database
+         const result = await paymentCollection.insertOne(data);
          res.send(result);
       });
 
