@@ -99,6 +99,28 @@ async function run() {
          res.send(result);
       });
 
+      // update verified to false or true
+      app.patch("/people/:email", async (req, res) => {
+         const email = req.params.email;
+         const user = req.body.verified;
+
+         const query = { email: email };
+         const options = { upsert: true };
+         const updateDoc = {
+            $set: {
+               verified: user,
+            },
+         };
+
+         const result = await peopleCollection.updateOne(
+            query,
+            updateDoc,
+            options
+         );
+
+         res.send(result);
+      });
+
       /********** WORK Related APIs ************/
 
       // add a work by an employee
