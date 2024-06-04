@@ -29,7 +29,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
    try {
-      const employeesCollection = client.db("flowTech").collection("employees");
+      const peopleCollection = client.db("flowTech").collection("people");
       const worksCollection = client.db("flowTech").collection("works");
 
       /********** JWT Related APIs ************/
@@ -79,11 +79,23 @@ async function run() {
       //    next();
       // };
 
-      /***** EMPLOYEES RELATED APIs *****/
+      /***** people RELATED APIs *****/
 
-      app.post("/employees", async (req, res) => {
+      app.get("/people", async (req, res) => {
+         const result = await peopleCollection.find().toArray();
+         res.send(result);
+      });
+
+      app.post("/people", async (req, res) => {
          const data = req.body;
-         const result = await employeesCollection.insertOne(data);
+         const email = data.email;
+         const query = { email: email };
+         const isExist = await peopleCollection.findOne(query);
+         console.log(isExist);
+         if (isExist) {
+            return res.send(isExist);
+         }
+         const result = await peopleCollection.insertOne(data);
          res.send(result);
       });
 
