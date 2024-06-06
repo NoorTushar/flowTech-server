@@ -136,13 +136,56 @@ async function run() {
       app.post("/works", async (req, res) => {
          const data = req.body;
          const result = await worksCollection.insertOne(data);
+
          res.send(result);
+      });
+
+      app.get("/example", async (req, res) => {
+         const uniqueNames = await worksCollection
+            .aggregate([
+               {
+                  $group: {
+                     _id: "$employeeName",
+                  },
+               },
+               {
+                  $project: {
+                     _id: 0,
+                     employeeName: "$_id",
+                  },
+               },
+            ])
+            .toArray();
+
+         res.send(employeeNames);
+      });
+
+      // get all works
+      app.get("/works", async (req, res) => {
+         const works = await worksCollection.find().toArray();
+         const uniqueNames = await worksCollection
+            .aggregate([
+               {
+                  $group: {
+                     _id: "$employeeName",
+                  },
+               },
+               {
+                  $project: {
+                     _id: 0,
+                     employeeName: "$_id",
+                  },
+               },
+            ])
+            .toArray();
+
+         res.send({ works, uniqueNames });
       });
 
       // get work data based on user email
       app.get("/works/:email", async (req, res) => {
          const email = req.params.email;
-         const query = { employee: email };
+         const query = { employeeEmail: email };
          const result = await worksCollection
             .find(query)
             .sort({ workDate: -1 })
