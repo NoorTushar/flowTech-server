@@ -143,12 +143,40 @@ async function run() {
       // get all works
       app.get("/works", async (req, res) => {
          const name = req.query.name;
+         const month = req.query.month;
          console.log(name);
          let filter = {};
          if (name) {
             filter = { employeeName: name };
          }
-         const works = await worksCollection.find(filter).toArray();
+
+         const worksPipeline = [
+            {
+               $addFields: {
+                  month: {
+                     $dateToString: {
+                        format: "%m",
+                        date: { $toDate: "$workDate" },
+                     },
+                  },
+               },
+            },
+            {
+               // Match documents where the "month" field matches the provided month value
+               $match: {
+                  ...filter,
+                  ...(month && { month: month }), // Add month to the filter if provided
+               },
+            },
+            {
+               $project: {
+                  month: 0,
+               },
+            },
+         ];
+
+         const works = await worksCollection.aggregate(worksPipeline).toArray();
+
          // aggregate pipe line to get unique names
          const uniqueNames = await worksCollection
             .aggregate([
