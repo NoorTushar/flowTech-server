@@ -140,29 +140,16 @@ async function run() {
          res.send(result);
       });
 
-      app.get("/example", async (req, res) => {
-         const uniqueNames = await worksCollection
-            .aggregate([
-               {
-                  $group: {
-                     _id: "$employeeName",
-                  },
-               },
-               {
-                  $project: {
-                     _id: 0,
-                     employeeName: "$_id",
-                  },
-               },
-            ])
-            .toArray();
-
-         res.send(employeeNames);
-      });
-
       // get all works
       app.get("/works", async (req, res) => {
-         const works = await worksCollection.find().toArray();
+         const name = req.query.name;
+         console.log(name);
+         let filter = {};
+         if (name) {
+            filter = { employeeName: name };
+         }
+         const works = await worksCollection.find(filter).toArray();
+         // aggregate pipe line to get unique names
          const uniqueNames = await worksCollection
             .aggregate([
                {
