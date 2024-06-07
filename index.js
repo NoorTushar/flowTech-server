@@ -32,6 +32,9 @@ async function run() {
       const peopleCollection = client.db("flowTech").collection("people");
       const worksCollection = client.db("flowTech").collection("works");
       const paymentCollection = client.db("flowTech").collection("payments");
+      const firedPeopleCollection = client
+         .db("flowTech")
+         .collection("firedPeople");
 
       /********** JWT Related APIs ************/
 
@@ -87,6 +90,13 @@ async function run() {
          res.send(result);
       });
 
+      // get only the verified employees
+      app.get("/verified-people", async (req, res) => {
+         const query = { verified: true };
+         const result = await peopleCollection.find(query).toArray();
+         res.send(result);
+      });
+
       // find a employee using email
       app.get("/people/:email", async (req, res) => {
          const email = req.params.email;
@@ -106,6 +116,55 @@ async function run() {
          }
          const result = await peopleCollection.insertOne(data);
          res.send(result);
+      });
+
+      // fire an employee and also add him/her to firedPeople collection
+      app.patch("/people/:email", async (req, res) => {
+         const email = req.params.email;
+
+         try {
+            const query = { email: email };
+            const employee = await peopleCollection.findOne(query);
+            // first we add him to the firePeople collection
+            const addToFirePeople = await firedPeopleCollection.insertOne(
+               employee
+            );
+
+            if (!addToFirePeople.acknowledged) {
+               return res.status(500).send({
+                  message: "Failed to add employee to firedPeople collection",
+               });
+            }
+
+            // then we change his status to fire from people collection
+            const updateDoc = {
+               $set: {
+                  role: "fired",
+               },
+            };
+
+            const fireEmployee = await peopleCollection.updateOne(
+               query,
+               updateDoc
+            );
+
+            if (fireEmployee.modifiedCount === 0) {
+               return res.status(500).send({
+                  message: "Failed to delete employee from people collection",
+               });
+            }
+
+            res.send({
+               message: "Employee fired and added to firedPeople collection",
+               addToFirePeople,
+               fireEmployee,
+            });
+         } catch (error) {
+            console.log(`error in delete people api`);
+            res.status(500).send({
+               message: "Internal Server Error While Firing Employee",
+            });
+         }
       });
 
       // update verified to false or true
