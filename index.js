@@ -167,7 +167,7 @@ async function run() {
          }
       });
 
-      // fire an employee and also add him/her to firedPeople collection
+      // make an employee a HR
       app.patch("/makeHR/:email", async (req, res) => {
          const email = req.params.email;
 
@@ -187,6 +187,29 @@ async function run() {
             console.log(`error in makeHR api`);
             res.status(500).send({
                message: "Internal Server Error While Firing Employee",
+            });
+         }
+      });
+
+      app.patch("/update-salary", async (req, res) => {
+         const user = req?.body;
+         console.log(user);
+         try {
+            const query = { email: user?.email };
+            const updateDoc = {
+               $set: {
+                  salary: user?.amount,
+               },
+            };
+            const result = await peopleCollection.updateOne(query, updateDoc);
+            res.send({
+               message: "Salary Increased!",
+               result,
+            });
+         } catch (error) {
+            console.log(`error in Increasing Salary api`);
+            res.status(500).send({
+               message: "Internal Server Error While Increasing Salary",
             });
          }
       });
