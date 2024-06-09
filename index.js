@@ -71,6 +71,7 @@ async function run() {
       const peopleCollection = client.db("flowTech").collection("people");
       const worksCollection = client.db("flowTech").collection("works");
       const paymentCollection = client.db("flowTech").collection("payments");
+      const messageCollection = client.db("flowTech").collection("messages");
       const firedPeopleCollection = client
          .db("flowTech")
          .collection("firedPeople");
@@ -124,12 +125,12 @@ async function run() {
 
       // test email
 
-      app.get("/test-email", async (req, res) => {
-         sendEmail("noor.tushar.khan@gmail.com", {
-            subject: "Booking Successful",
-            message: `<p>Hello There! Thank you for messaging us.</p>`,
-         });
-      });
+      // app.get("/test-email", async (req, res) => {
+      //    sendEmail("noor.tushar.khan@gmail.com", {
+      //       subject: "Booking Successful",
+      //       message: `<p>Hello There! Thank you for messaging us.</p>`,
+      //    });
+      // });
 
       /***** people RELATED APIs *****/
 
@@ -422,6 +423,18 @@ async function run() {
             ])
             .toArray();
 
+         res.send(result);
+      });
+
+      /********** MESSAGE Related APIs ************/
+      app.get("/messages", async (req, res) => {
+         const result = await messageCollection.find().toArray();
+         res.send(result);
+      });
+
+      app.post("/messages", async (req, res) => {
+         const data = req.body;
+         const result = await messageCollection.insertOne(data);
          res.send(result);
       });
 
