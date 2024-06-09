@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const port = process.env.PORT || 3000;
@@ -15,6 +16,44 @@ const port = process.env.PORT || 3000;
 // middlewares:
 app.use(cors());
 app.use(express.json());
+
+// send email
+const sendEmail = (emailAddress, emailData) => {
+   const transporter = nodemailer.createTransport({
+      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false, // Use `true` for port 465, `false` for all other ports
+      auth: {
+         user: process.env.TRANSPORTER_EMAIL,
+         pass: process.env.TRANSPORTER_PASS,
+      },
+   });
+
+   // verify transporter
+   // verify connection configuration
+   transporter.verify(function (error, success) {
+      if (error) {
+         console.log(error);
+      } else {
+         console.log("Server is ready to take our messages");
+      }
+   });
+   const mailBody = {
+      from: `"FlowTech" <${process.env.TRANSPORTER_EMAIL}>`, // sender address
+      to: emailAddress, // list of receivers
+      subject: emailData.subject, // Subject line
+      html: emailData.message, // html body
+   };
+
+   transporter.sendMail(mailBody, (error, info) => {
+      if (error) {
+         console.log(error);
+      } else {
+         console.log("Email Sent: " + info.response);
+      }
+   });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.j7c4zww.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -82,6 +121,15 @@ async function run() {
       //    }
       //    next();
       // };
+
+      // test email
+
+      app.get("/test-email", async (req, res) => {
+         sendEmail("noor.tushar.khan@gmail.com", {
+            subject: "Booking Successful",
+            message: `<p>Hello There! Thank you for messaging us.</p>`,
+         });
+      });
 
       /***** people RELATED APIs *****/
 
