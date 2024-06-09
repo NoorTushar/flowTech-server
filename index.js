@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 3000;
 
 // const corsOptions = {
@@ -364,20 +365,27 @@ async function run() {
       });
 
       /********** Payment Related APIs ************/
-      app.post("/pay", async (req, res) => {
+      app.post("/pay-query", async (req, res) => {
          const data = req.body;
-
+         console.log(data);
          // Check if a payment exists for the same employee and month
          const existingPayment = await paymentCollection.findOne({
             email: data.email,
             month: data.month,
             year: data.year,
          });
+         console.log(existingPayment);
 
          if (existingPayment) {
             // If a payment exists for the same employee and month, return an error
-            return res.send({ message: "payment already made" });
+            return res.send({ message: "salary already given" });
+         } else {
+            res.send({ message: "can pay" });
          }
+      });
+
+      app.post("/pay", async (req, res) => {
+         const data = req.body;
 
          // If no existing payment, insert the payment data into the database
          const result = await paymentCollection.insertOne(data);
@@ -424,6 +432,28 @@ async function run() {
             .toArray();
 
          res.send(result);
+      });
+
+      /********** Stripe Payment Intent API ************/
+      app.post("/create-payment-intent", async (req, res) => {
+         const salary = req.body.salary;
+         console.log(salary);
+         const salaryInCents = parseInt(salary * 100);
+         if (!salary || salaryInCents < 1) {
+            return res.send({ message: "Invalid Salary" });
+         }
+         // generate client secret
+         const paymentIntent = await stripe.paymentIntents.create({
+            amount: salaryInCents,
+            currency: "usd",
+            automatic_payment_methods: {
+               enabled: true,
+            },
+         });
+         // send client secret
+         res.send({
+            clientSecret: paymentIntent.client_secret,
+         });
       });
 
       /********** MESSAGE Related APIs ************/
