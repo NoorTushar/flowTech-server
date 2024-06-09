@@ -121,7 +121,7 @@ async function run() {
          next();
       };
 
-      // use verify hr after verifyToken
+      // verify hr after verifyToken
       const verifyHR = async (req, res, next) => {
          const email = req.decoded.email;
          const query = { email: email };
@@ -129,6 +129,19 @@ async function run() {
          console.log(user);
          const isHR = user?.role === "hr";
          if (!isHR) {
+            return res.status(403).send({ message: "forbidden access" });
+         }
+         next();
+      };
+
+      // verify employee after verifyToken
+      const verifyEmployee = async (req, res, next) => {
+         const email = req.decoded.email;
+         const query = { email: email };
+         const user = await peopleCollection.findOne(query);
+         console.log(user);
+         const isEmployee = user?.role === "employee";
+         if (!isEmployee) {
             return res.status(403).send({ message: "forbidden access" });
          }
          next();
@@ -144,6 +157,14 @@ async function run() {
       // });
 
       /***** people RELATED APIs *****/
+
+      // get the user role from this api only
+      app.get("/user/:email", async (req, res) => {
+         const email = req.params.email;
+         const query = { email: email };
+         const result = await peopleCollection.findOne(query);
+         res.send(result);
+      });
 
       app.get("/people", verifyToken, verifyHR, async (req, res) => {
          const result = await peopleCollection.find().toArray();
@@ -299,7 +320,7 @@ async function run() {
       /********** WORK Related APIs ************/
 
       // add a work by an employee
-      app.post("/works", async (req, res) => {
+      app.post("/works", verifyToken, verifyEmployee, async (req, res) => {
          const data = req.body;
          const result = await worksCollection.insertOne(data);
 
@@ -403,7 +424,7 @@ async function run() {
       });
 
       // find pay history for a single user
-      app.get("/pay/:email", async (req, res) => {
+      app.get("/pay/:email", verifyToken, async (req, res) => {
          const email = req.params.email;
          const query = { email: email };
 
