@@ -8,17 +8,11 @@ require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 3000;
 
-// const corsOptions = {
-//    origin: ["http://localhost:5173"],
-//    credentials: true,
-//    optionSuccessStatus: 200,
-// };
-
 // middlewares:
 app.use(cors());
 app.use(express.json());
 
-// send email
+// send email using nodemailer
 const sendEmail = (emailAddress, emailData) => {
    const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -56,6 +50,8 @@ const sendEmail = (emailAddress, emailData) => {
    });
 };
 
+// Middlewares
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.j7c4zww.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -89,40 +85,54 @@ async function run() {
       });
 
       // middlewares:
-      // const verifyToken = (req, res, next) => {
-      //    console.log(
-      //       "from middleware verify token: ",
-      //       req.headers.authorization
-      //    );
+      const verifyToken = (req, res, next) => {
+         console.log(req.headers);
+         console.log(
+            "from middleware verify token: ",
+            req.headers.authorization
+         );
 
-      //    if (!req.headers.authorization) {
-      //       return res.status(401).send({ message: "Unauthorized Access" });
-      //    }
+         if (!req.headers.authorization) {
+            return res.status(401).send({ message: "Unauthorized Access" });
+         }
 
-      //    const token = req.headers.authorization.split(" ")[1];
+         const token = req.headers.authorization.split(" ")[1];
 
-      //    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-      //       if (err) {
-      //          return res.status(401).send({ message: "Unauthorized Access" });
-      //       }
+         jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+            if (err) {
+               return res.status(401).send({ message: "Unauthorized Access" });
+            }
 
-      //       req.decoded = decoded;
+            req.decoded = decoded;
 
-      //       next();
-      //    });
-      // };
+            next();
+         });
+      };
 
       // use verify admin after verifyToken
-      // const verifyAdmin = async (req, res, next) => {
-      //    const email = req.decoded.email;
-      //    const query = { email: email };
-      //    const user = await userCollection.findOne(query);
-      //    const isAdmin = user?.role === "admin";
-      //    if (!isAdmin) {
-      //       return res.status(403).send({ message: "forbidden access" });
-      //    }
-      //    next();
-      // };
+      const verifyAdmin = async (req, res, next) => {
+         const email = req.decoded.email;
+         const query = { email: email };
+         const user = await peopleCollection.findOne(query);
+         const isAdmin = user?.role === "admin";
+         if (!isAdmin) {
+            return res.status(403).send({ message: "forbidden access" });
+         }
+         next();
+      };
+
+      // use verify hr after verifyToken
+      const verifyHR = async (req, res, next) => {
+         const email = req.decoded.email;
+         const query = { email: email };
+         const user = await peopleCollection.findOne(query);
+         console.log(user);
+         const isHR = user?.role === "hr";
+         if (!isHR) {
+            return res.status(403).send({ message: "forbidden access" });
+         }
+         next();
+      };
 
       // test email
 
@@ -135,7 +145,7 @@ async function run() {
 
       /***** people RELATED APIs *****/
 
-      app.get("/people", async (req, res) => {
+      app.get("/people", verifyToken, verifyHR, async (req, res) => {
          const result = await peopleCollection.find().toArray();
          res.send(result);
       });
