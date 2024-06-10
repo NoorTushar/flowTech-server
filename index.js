@@ -147,6 +147,19 @@ async function run() {
          next();
       };
 
+      // verify employee or HR after verifyToken
+      const verifyEmployeeOrHR = async (req, res, next) => {
+         const email = req.decoded.email;
+         const query = { email: email };
+         const user = await peopleCollection.findOne(query);
+         console.log(user);
+         const isEmployee = user?.role === "employee" || user?.role === "hr";
+         if (!isEmployee) {
+            return res.status(403).send({ message: "forbidden access" });
+         }
+         next();
+      };
+
       // test email
 
       // app.get("/test-email", async (req, res) => {
@@ -172,26 +185,34 @@ async function run() {
       });
 
       // get only the verified employees
-      app.get("/verified-people", async (req, res) => {
-         const query = { verified: true };
-         const result = await peopleCollection.find(query).toArray();
-         res.send(result);
-      });
+      app.get(
+         "/verified-people",
+         verifyToken,
+         verifyAdmin,
+         async (req, res) => {
+            const query = { verified: true };
+            const result = await peopleCollection.find(query).toArray();
+            res.send(result);
+         }
+      );
 
       // find a employee using email
-      app.get("/people/:email", async (req, res) => {
+      app.get("/people/:email", verifyToken, verifyHR, async (req, res) => {
          const email = req.params.email;
          const query = { email: email };
          const result = await peopleCollection.findOne(query);
          res.send(result);
       });
 
+      // enter a employee if not already added to database
       app.post("/people", async (req, res) => {
          const data = req.body;
+         console.log("registered/ google sign in: ", data);
          const email = data.email;
          const query = { email: email };
+
          const isExist = await peopleCollection.findOne(query);
-         console.log(isExist);
+         console.log("is Exist in db already: ", isExist);
          if (isExist) {
             return res.send(isExist);
          }
@@ -200,103 +221,139 @@ async function run() {
       });
 
       // fire an employee and also add him/her to firedPeople collection
-      app.patch("/firePeople/:email", async (req, res) => {
+      app.patch(
+         "/firePeople/:email",
+         verifyToken,
+         verifyAdmin,
+         async (req, res) => {
+            const email = req.params.email;
+
+            try {
+               const query = { email: email };
+               const employee = await peopleCollection.findOne(query);
+               // first we add him to the firePeople collection
+               const addToFirePeople = await firedPeopleCollection.insertOne(
+                  employee
+               );
+
+               if (!addToFirePeople.acknowledged) {
+                  return res.status(500).send({
+                     message:
+                        "Failed to add employee to firedPeople collection",
+                  });
+               }
+
+               // then we change his status to fire from people collection
+               const updateDoc = {
+                  $set: {
+                     role: "fired",
+                  },
+               };
+
+               const fireEmployee = await peopleCollection.updateOne(
+                  query,
+                  updateDoc
+               );
+
+               if (fireEmployee.modifiedCount === 0) {
+                  return res.status(500).send({
+                     message:
+                        "Failed to delete employee from people collection",
+                  });
+               }
+
+               res.send({
+                  message: "Employee fired and added to firedPeople collection",
+                  addToFirePeople,
+                  fireEmployee,
+               });
+            } catch (error) {
+               console.log(`error in delete people api`);
+               res.status(500).send({
+                  message: "Internal Server Error While Firing Employee",
+               });
+            }
+         }
+      );
+
+      // find a fired employee using email
+
+      app.get("/fired-people/:email", async (req, res) => {
          const email = req.params.email;
-
-         try {
-            const query = { email: email };
-            const employee = await peopleCollection.findOne(query);
-            // first we add him to the firePeople collection
-            const addToFirePeople = await firedPeopleCollection.insertOne(
-               employee
-            );
-
-            if (!addToFirePeople.acknowledged) {
-               return res.status(500).send({
-                  message: "Failed to add employee to firedPeople collection",
-               });
-            }
-
-            // then we change his status to fire from people collection
-            const updateDoc = {
-               $set: {
-                  role: "fired",
-               },
-            };
-
-            const fireEmployee = await peopleCollection.updateOne(
-               query,
-               updateDoc
-            );
-
-            if (fireEmployee.modifiedCount === 0) {
-               return res.status(500).send({
-                  message: "Failed to delete employee from people collection",
-               });
-            }
-
-            res.send({
-               message: "Employee fired and added to firedPeople collection",
-               addToFirePeople,
-               fireEmployee,
-            });
-         } catch (error) {
-            console.log(`error in delete people api`);
-            res.status(500).send({
-               message: "Internal Server Error While Firing Employee",
-            });
+         const query = { email: email };
+         const isFired = await firedPeopleCollection.findOne(query);
+         if (isFired) {
+            return res.send({ isFired: true });
+         } else {
+            res.send({ isFired: false });
          }
       });
 
       // make an employee a HR
-      app.patch("/makeHR/:email", async (req, res) => {
-         const email = req.params.email;
+      app.patch(
+         "/makeHR/:email",
+         verifyToken,
+         verifyAdmin,
+         async (req, res) => {
+            const email = req.params.email;
 
-         try {
-            const query = { email: email };
-            const updateDoc = {
-               $set: {
-                  role: "hr",
-               },
-            };
-            const result = await peopleCollection.updateOne(query, updateDoc);
-            res.send({
-               message: "Made HR!",
-               result,
-            });
-         } catch (error) {
-            console.log(`error in makeHR api`);
-            res.status(500).send({
-               message: "Internal Server Error While Firing Employee",
-            });
+            try {
+               const query = { email: email };
+               const updateDoc = {
+                  $set: {
+                     role: "hr",
+                  },
+               };
+               const result = await peopleCollection.updateOne(
+                  query,
+                  updateDoc
+               );
+               res.send({
+                  message: "Made HR!",
+                  result,
+               });
+            } catch (error) {
+               console.log(`error in makeHR api`);
+               res.status(500).send({
+                  message: "Internal Server Error While Firing Employee",
+               });
+            }
          }
-      });
+      );
 
-      app.patch("/update-salary", async (req, res) => {
-         const user = req?.body;
-         console.log(user);
-         try {
-            const query = { email: user?.email };
-            const updateDoc = {
-               $set: {
-                  salary: user?.amount,
-               },
-            };
-            const result = await peopleCollection.updateOne(query, updateDoc);
-            res.send({
-               message: "Salary Increased!",
-               result,
-            });
-         } catch (error) {
-            console.log(`error in Increasing Salary api`);
-            res.status(500).send({
-               message: "Internal Server Error While Increasing Salary",
-            });
+      app.patch(
+         "/update-salary",
+         verifyToken,
+         verifyAdmin,
+         async (req, res) => {
+            const user = req?.body;
+            console.log(user);
+            try {
+               const query = { email: user?.email };
+               const updateDoc = {
+                  $set: {
+                     salary: user?.amount,
+                  },
+               };
+               const result = await peopleCollection.updateOne(
+                  query,
+                  updateDoc
+               );
+               res.send({
+                  message: "Salary Increased!",
+                  result,
+               });
+            } catch (error) {
+               console.log(`error in Increasing Salary api`);
+               res.status(500).send({
+                  message: "Internal Server Error While Increasing Salary",
+               });
+            }
          }
-      });
+      );
 
       // update verified to false or true
-      app.patch("/people/:email", async (req, res) => {
+      app.patch("/people/:email", verifyToken, verifyHR, async (req, res) => {
          const email = req.params.email;
          const user = req.body.verified;
 
@@ -328,7 +385,7 @@ async function run() {
       });
 
       // get all works
-      app.get("/works", async (req, res) => {
+      app.get("/works", verifyToken, async (req, res) => {
          const name = req.query.name;
          const month = req.query.month;
          console.log(name);
@@ -385,7 +442,7 @@ async function run() {
       });
 
       // get work data based on user email
-      app.get("/works/:email", async (req, res) => {
+      app.get("/works/:email", verifyToken, async (req, res) => {
          const email = req.params.email;
          const query = { employeeEmail: email };
          const result = await worksCollection
@@ -396,7 +453,7 @@ async function run() {
       });
 
       /********** Payment Related APIs ************/
-      app.post("/pay-query", async (req, res) => {
+      app.post("/pay-query", verifyToken, verifyHR, async (req, res) => {
          const data = req.body;
          console.log(data);
          // Check if a payment exists for the same employee and month
@@ -415,7 +472,7 @@ async function run() {
          }
       });
 
-      app.post("/pay", async (req, res) => {
+      app.post("/pay", verifyToken, verifyHR, async (req, res) => {
          const data = req.body;
 
          // If no existing payment, insert the payment data into the database
@@ -424,46 +481,51 @@ async function run() {
       });
 
       // find pay history for a single user
-      app.get("/pay/:email", verifyToken, verifyEmployee, async (req, res) => {
-         const email = req.params.email;
-         const query = { email: email };
+      app.get(
+         "/pay/:email",
+         verifyToken,
+         verifyEmployeeOrHR,
+         async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
 
-         // Assuming 'month' and 'year' are stored as strings and need to be combined and sorted
-         // You can use a pipeline to sort by year and month
-         const result = await paymentCollection
-            .aggregate([
-               { $match: query },
-               {
-                  $addFields: {
-                     yearInt: { $toInt: "$year" },
-                     monthInt: {
-                        $indexOfArray: [
-                           [
-                              "January",
-                              "February",
-                              "March",
-                              "April",
-                              "May",
-                              "June",
-                              "July",
-                              "August",
-                              "September",
-                              "October",
-                              "November",
-                              "December",
+            // Assuming 'month' and 'year' are stored as strings and need to be combined and sorted
+            // You can use a pipeline to sort by year and month
+            const result = await paymentCollection
+               .aggregate([
+                  { $match: query },
+                  {
+                     $addFields: {
+                        yearInt: { $toInt: "$year" },
+                        monthInt: {
+                           $indexOfArray: [
+                              [
+                                 "January",
+                                 "February",
+                                 "March",
+                                 "April",
+                                 "May",
+                                 "June",
+                                 "July",
+                                 "August",
+                                 "September",
+                                 "October",
+                                 "November",
+                                 "December",
+                              ],
+                              "$month",
                            ],
-                           "$month",
-                        ],
+                        },
                      },
                   },
-               },
-               { $sort: { yearInt: -1, monthInt: -1 } },
-               { $project: { yearInt: 0, monthInt: 0 } }, // Remove temporary fields from the result
-            ])
-            .toArray();
+                  { $sort: { yearInt: -1, monthInt: -1 } },
+                  { $project: { yearInt: 0, monthInt: 0 } }, // Remove temporary fields from the result
+               ])
+               .toArray();
 
-         res.send(result);
-      });
+            res.send(result);
+         }
+      );
 
       /********** Stripe Payment Intent API ************/
       app.post("/create-payment-intent", async (req, res) => {
