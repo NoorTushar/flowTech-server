@@ -424,7 +424,7 @@ async function run() {
       });
 
       // find pay history for a single user
-      app.get("/pay/:email", verifyToken, async (req, res) => {
+      app.get("/pay/:email", verifyToken, verifyEmployee, async (req, res) => {
          const email = req.params.email;
          const query = { email: email };
 
