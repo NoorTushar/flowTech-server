@@ -488,7 +488,7 @@ async function run() {
       });
 
       /********** MESSAGE Related APIs ************/
-      app.get("/messages", async (req, res) => {
+      app.get("/messages", verifyToken, verifyAdmin, async (req, res) => {
          const result = await messageCollection.find().toArray();
          res.send(result);
       });
